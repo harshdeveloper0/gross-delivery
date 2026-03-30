@@ -25,7 +25,7 @@ const OrderSchema = new mongoose.Schema({
   },
 
 
-  // ✅ delivery boy id
+
   deliveryId: {
     type: String,
     default: null,

@@ -20,10 +20,10 @@ export async function POST(req) {
 
   } catch (e) {
 
-    console.error("PAYMENT ERROR:", e);
+    console.error(e);
 
     return Response.json(
-      { error: "Payment failed" },
+      { error: "failed" },
       { status: 500 }
     );
 

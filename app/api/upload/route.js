@@ -2,24 +2,27 @@ import cloudinary from "@/lib/cloudinary";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
 
-    const result = await cloudinary.uploader.upload(
-      body.file,
-      {
-        folder: "quickapp",
-      }
-    );
+    const { file } = await req.json();
+
+    if (!file) {
+      return Response.json({ error: "No file" }, { status: 400 });
+    }
+
+    const upload = await cloudinary.uploader.upload(file, {
+      folder: "quickapp",
+    });
 
     return Response.json({
-      url: result.secure_url,
+      url: upload.secure_url,
     });
 
   } catch (err) {
-    console.log(err);
+
+    console.error("UPLOAD ERROR:", err);
 
     return Response.json(
-      { error: "upload failed" },
+      { error: "Upload failed" },
       { status: 500 }
     );
   }

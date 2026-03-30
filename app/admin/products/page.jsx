@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 export default function AdminProducts() {
 
@@ -10,131 +11,116 @@ export default function AdminProducts() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [image, setImage] = useState("");
   const [category, setCategory] = useState("");
 
-  const [editId, setEditId] = useState(null);
+  const [description, setDescription] = useState("");
+  const [images, setImages] = useState([]);
 
+  const [editId, setEditId] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-
-
+  // 🔥 LOAD DATA
   async function load() {
 
-    const p = await fetch("/api/products");
+    const p = await api("/api/products");
     const pdata = await p.json();
     setProducts(pdata);
 
-    const c = await fetch("/api/categories");
+    const c = await api("/api/categories");
     const cdata = await c.json();
     setCategories(cdata);
-
   }
-
 
   useEffect(() => {
     load();
   }, []);
 
-
-
+  // 🔥 MULTI IMAGE UPLOAD
   async function upload(e) {
 
-    const file = e.target.files[0];
+    const files = Array.from(e.target.files);
 
-    if (!file) return;
+    if (!files.length) return;
 
     setUploading(true);
 
-    const reader = new FileReader();
+    let uploaded = [];
 
-    reader.readAsDataURL(file);
+    for (let file of files.slice(0, 4)) {
 
-    reader.onload = async () => {
+      const reader = new FileReader();
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          file: reader.result,
-        }),
+      const base64 = await new Promise((res) => {
+        reader.onload = () => res(reader.result);
+        reader.readAsDataURL(file);
       });
 
-      const data = await res.json();
+      const r = await api("/api/upload", {
+        method: "POST",
+        body: JSON.stringify({ file: base64 }),
+      });
 
-      setImage(data.url);
+      const data = await r.json();
 
-      setUploading(false);
+      uploaded.push(data.url);
+    }
 
-    };
-
+    setImages(uploaded);
+    setUploading(false);
   }
 
-
-
+  // 🔥 ADD
   async function add() {
 
     if (uploading) return;
 
-    await fetch("/api/products", {
+    await api("/api/products", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         name,
         price,
         stock,
-        image,
         category,
+        description,
+        images,
       }),
     });
 
     reset();
     load();
-
   }
 
-
-
+  // 🔥 UPDATE
   async function update() {
 
-    await fetch("/api/products", {
+    await api("/api/products", {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         id: editId,
         name,
         price,
         stock,
-        image,
         category,
+        description,
+        images,
       }),
     });
 
     reset();
     load();
-
   }
 
-
-
+  // 🔥 DELETE
   async function del(id) {
 
-    await fetch("/api/products?id=" + id, {
+    await api("/api/products?id=" + id, {
       method: "DELETE",
     });
 
     load();
-
   }
 
-
-
+  // 🔥 EDIT
   function edit(p) {
 
     setEditId(p._id);
@@ -142,13 +128,13 @@ export default function AdminProducts() {
     setName(p.name);
     setPrice(p.price);
     setStock(p.stock);
-    setImage(p.image);
     setCategory(p.category);
 
+    setDescription(p.description || "");
+    setImages(p.images || []);
   }
 
-
-
+  // 🔥 RESET
   function reset() {
 
     setEditId(null);
@@ -156,113 +142,107 @@ export default function AdminProducts() {
     setName("");
     setPrice("");
     setStock("");
-    setImage("");
     setCategory("");
 
+    setDescription("");
+    setImages([]);
   }
-
-
 
   return (
 
-    <div className="p-6">
+    <div className="p-6 max-w-6xl mx-auto">
 
       <h1 className="text-2xl font-bold mb-4">
         Admin Products
       </h1>
 
-
-
-      <div className="flex gap-2 flex-wrap mb-4">
+      {/* 🔥 FORM */}
+      <div className="flex flex-wrap gap-2 mb-4">
 
         <input
-          placeholder="name"
+          placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="border p-2"
         />
 
         <input
-          placeholder="price"
+          placeholder="Price"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           className="border p-2"
         />
 
         <input
-          placeholder="stock"
+          placeholder="Stock"
           value={stock}
           onChange={(e) => setStock(e.target.value)}
           className="border p-2"
         />
-
 
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           className="border p-2"
         >
-
-          <option value="">
-            Select Category
-          </option>
+          <option value="">Category</option>
 
           {categories.map((c) => (
             <option key={c._id} value={c.name}>
               {c.name}
             </option>
           ))}
-
         </select>
 
-
-
-        <input
-          type="file"
-          onChange={upload}
+        {/* DESCRIPTION */}
+        <textarea
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="border p-2 w-full"
         />
 
+        {/* IMAGE UPLOAD */}
+        <input type="file" multiple onChange={upload} />
 
+        {/* PREVIEW */}
+        <div className="flex gap-2 flex-wrap">
+          {images.map((img, i) => (
+            <img key={i} src={img} className="w-16 h-16 object-cover rounded" />
+          ))}
+        </div>
 
+        {/* BUTTON */}
         {editId ? (
-
           <button
             onClick={update}
-            className="bg-blue-500 text-white px-3"
+            className="bg-blue-500 text-white px-4 py-2"
           >
             Update
           </button>
-
         ) : (
-
           <button
             onClick={add}
             disabled={uploading}
-            className="bg-green-600 text-white px-3"
+            className="bg-green-600 text-white px-4 py-2"
           >
-
             {uploading ? "Uploading..." : "Add"}
-
           </button>
-
         )}
 
       </div>
 
-
-
-      <div className="grid grid-cols-3 gap-4">
+      {/* 🔥 PRODUCTS GRID */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
         {products.map((p) => (
 
-          <div
-            key={p._id}
-            className="border p-3 rounded"
-          >
+          <div key={p._id} className="bg-white border p-3 rounded">
 
-            {p.image && (
+            {/* IMAGE */}
+            {p.images?.[0] && (
               <img
-                src={p.image}
+                src={p.images[0]}
                 className="h-24 w-full object-cover mb-2"
               />
             )}
@@ -271,23 +251,35 @@ export default function AdminProducts() {
 
             <p>₹{p.price}</p>
 
-            <p>stock: {p.stock}</p>
+            <p className="text-sm text-gray-500">
+              {p.description}
+            </p>
 
-            <p>cat: {p.category}</p>
+            <p className="text-xs">
+              stock: {p.stock}
+            </p>
 
-            <button
-              onClick={() => edit(p)}
-              className="text-blue-500 mr-2"
-            >
-              edit
-            </button>
+            <p className="text-xs">
+              cat: {p.category}
+            </p>
 
-            <button
-              onClick={() => del(p._id)}
-              className="text-red-500"
-            >
-              delete
-            </button>
+            <div className="mt-2 flex gap-2">
+
+              <button
+                onClick={() => edit(p)}
+                className="text-blue-500"
+              >
+                Edit
+              </button>
+
+              <button
+                onClick={() => del(p._id)}
+                className="text-red-500"
+              >
+                Delete
+              </button>
+
+            </div>
 
           </div>
 
@@ -296,7 +288,5 @@ export default function AdminProducts() {
       </div>
 
     </div>
-
   );
-
 }

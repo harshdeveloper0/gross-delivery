@@ -1,18 +1,14 @@
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
-
-  phone: String,
-
   name: String,
-
+  phone: String,
   address: String,
 
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-
+  role: {
+    type: String,
+    default: "user", // user / admin / delivery
+  },
 });
 
 export default mongoose.models.User ||

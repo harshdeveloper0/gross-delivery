@@ -1,93 +1,110 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function ProductCard({ product }) {
 
   const { cart, addToCart, removeItem } = useCart();
-  const router = useRouter();
 
-  const item = cart.find(p => p._id === product._id);
+  // ✅ FIX: old + new image support
+  const img = product.images?.[0] || product.image;
 
+  // ✅ check if already in cart
+  const inCart = cart.find(p => p._id === product._id);
 
   return (
 
     <div className="bg-white rounded-xl shadow-sm border p-2 hover:shadow-md transition">
 
-      {/* IMAGE */}
-      <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+      {/* 🔥 IMAGE */}
+      <Link href={`/products/${product._id}`}>
 
-        {product.image ? (
-          <img
-            src={product.image}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="text-gray-400">
-            No image
-          </span>
-        )}
+        <div className="w-full h-32 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
 
-      </div>
+          {img ? (
+
+            <img
+              src={img}
+              className="w-full h-full object-cover"
+              alt={product.name}
+            />
+
+          ) : (
+
+            <span className="text-gray-400 text-sm">
+              No image
+            </span>
+
+          )}
+
+        </div>
+
+      </Link>
 
 
-      {/* NAME */}
-      <h3 className="text-sm font-semibold mt-2">
+      {/* 🔥 NAME */}
+      <h3 className="text-sm font-semibold mt-2 line-clamp-2">
         {product.name}
       </h3>
 
 
-      {/* PRICE */}
-      <p className="font-bold text-lg">
+      {/* 🔥 DESCRIPTION */}
+      {product.description && (
+        <p className="text-xs text-gray-500 line-clamp-2">
+          {product.description}
+        </p>
+      )}
+
+
+      {/* 🔥 PRICE */}
+      <p className="font-bold text-lg mt-1">
         ₹{product.price}
       </p>
 
 
-      {/* BUTTONS */}
+      {/* 🔥 STOCK */}
+      <p className="text-xs text-gray-500">
+        Stock: {product.stock}
+      </p>
 
-      {product.stock <= 0 ? (
 
+      {/* 🔥 BUTTONS */}
+      <div className="flex gap-2 mt-2">
+
+        {/* BUY */}
         <button
-          disabled
-          className="w-full mt-2 py-1 rounded bg-gray-300 text-gray-600"
+
+          disabled={product.stock <= 0}
+
+          onClick={() => addToCart(product)}
+
+          className={`flex-1 py-1 rounded-lg text-sm font-semibold
+            ${
+              product.stock > 0
+                ? "bg-green-600 text-white"
+                : "bg-gray-300 text-gray-600"
+            }
+          `}
         >
-          Out
+
+          {product.stock > 0 ? "Buy" : "Out"}
+
         </button>
 
-      ) : item ? (
 
-        <div className="flex gap-2 mt-2">
-
-          <button
-            onClick={() => router.push("/cart")}
-            className="flex-1 bg-yellow-500 text-white py-1 rounded font-semibold"
-          >
-            Buy
-          </button>
-
+        {/* REMOVE */}
+        {inCart && (
           <button
             onClick={() => removeItem(product._id)}
-            className="bg-red-500 text-white px-2 rounded"
+            className="px-2 bg-red-500 text-white rounded-lg text-sm"
           >
             ✕
           </button>
+        )}
 
-        </div>
-
-      ) : (
-
-        <button
-          onClick={() => addToCart(product)}
-          className="w-full mt-2 py-1 rounded bg-green-600 text-white font-semibold"
-        >
-          Add
-        </button>
-
-      )}
+      </div>
 
     </div>
-
   );
-
 }

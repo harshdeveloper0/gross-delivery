@@ -1,29 +1,21 @@
 import mongoose from "mongoose";
 
 const ProductSchema = new mongoose.Schema({
-
   name: String,
 
   price: Number,
 
+  stock: Number,
+
   category: String,
 
-  stock: {
-    type: Number,
-    default: 0,
-  },
+  
+  description: String,
 
-  image: {
-    type: String,
-    default: "",
-  },
+  
+  images: [String],
 
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-
-});
+}, { timestamps: true });
 
 export default mongoose.models.Product ||
   mongoose.model("Product", ProductSchema);

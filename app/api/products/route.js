@@ -10,9 +10,7 @@ export async function GET() {
   const data = await Product.find();
 
   return Response.json(data);
-
 }
-
 
 
 // ADD
@@ -22,7 +20,10 @@ export async function POST(req) {
 
   const body = await req.json();
 
+  console.log("PRODUCT BODY:", body); // 🔥 debug
+
   const p = await Product.create({
+
     name: body.name,
 
     price: Number(body.price),
@@ -31,13 +32,16 @@ export async function POST(req) {
 
     category: body.category,
 
-    image: body.image,
+    // ✅ FIX
+    description: body.description || "",
+
+    // ✅ MULTI IMAGE SUPPORT
+    images: body.images || (body.image ? [body.image] : []),
+
   });
 
   return Response.json(p);
-
 }
-
 
 
 // UPDATE
@@ -53,15 +57,17 @@ export async function PATCH(req) {
     id,
     {
       ...rest,
+
       price: Number(rest.price),
       stock: Number(rest.stock),
+
+      // ✅ FIX
+      images: rest.images || (rest.image ? [rest.image] : []),
     }
   );
 
   return Response.json({ ok: true });
-
 }
-
 
 
 // DELETE
@@ -69,14 +75,11 @@ export async function DELETE(req) {
 
   await connectDB();
 
-  const { searchParams } =
-    new URL(req.url);
+  const { searchParams } = new URL(req.url);
 
-  const id =
-    searchParams.get("id");
+  const id = searchParams.get("id");
 
   await Product.findByIdAndDelete(id);
 
   return Response.json({ ok: true });
-
 }

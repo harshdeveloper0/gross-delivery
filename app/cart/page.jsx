@@ -2,38 +2,29 @@
 
 import { useCart } from "@/context/CartContext";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CartPage() {
+
   const { cart, inc, dec, removeItem, clearCart } = useCart();
+  const router = useRouter();
+
+  const [mounted, setMounted] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  // ✅ total
-
-  let total = 0;
-
-  cart.forEach((i) => {
-    total += i.price * i.qty;
-  });
-
-  let delivery = 0;
-
-  if (total > 0 && total < 150) {
-    delivery = 10;
-  }
-
-  const finalTotal = total + delivery;
-
-  // ✅ autofill
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-    const phone = localStorage.getItem("phone");
+    const savedPhone = localStorage.getItem("phone");
 
-    if (!phone) return;
+    if (!savedPhone) return;
 
-    fetch("/api/users?phone=" + phone)
+    fetch("/api/users?phone=" + savedPhone)
       .then((res) => res.json())
       .then((u) => {
         if (!u) return;
@@ -44,91 +35,124 @@ export default function CartPage() {
       });
   }, []);
 
+  if (!mounted) return null;
+
+  const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const delivery = total > 0 && total < 150 ? 10 : 0;
+  const finalTotal = total + delivery;
+
   function loadRazorpay() {
-  return new Promise((resolve) => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
-  // ✅ PLACE ORDER
-
- async function placeOrder() {
-
-  const loaded = await loadRazorpay();
-
-  if (!loaded) {
-    alert("Razorpay failed to load");
-    return;
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   }
 
-  if (!window.Razorpay) {
-    alert("Razorpay not available");
-    return;
+  async function placeOrder() {
+
+    // 🔥 LOGIN CHECK
+    const savedPhone = localStorage.getItem("phone");
+
+    if (!savedPhone) {
+      router.push("/login?redirect=/cart");
+      return;
+    }
+
+    if (!name || !phone || !address) {
+      alert("Please fill all details");
+      return;
+    }
+
+    if (cart.length === 0) {
+      alert("Cart empty hai");
+      return;
+    }
+
+    const loaded = await loadRazorpay();
+
+    if (!loaded) {
+      alert("Razorpay failed to load");
+      return;
+    }
+
+    if (!window.Razorpay) {
+      alert("Razorpay not available");
+      return;
+    }
+
+    const res = await fetch("/api/payment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: finalTotal }),
+    });
+
+    const order = await res.json();
+
+    const options = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: "INR",
+      name: "QuickApp",
+      order_id: order.id,
+
+      handler: async function (response) {
+
+        await fetch("/api/orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            items: cart,
+            total,
+            delivery,
+            finalTotal,
+            paymentId: response.razorpay_payment_id,
+            customer: { name, phone, address },
+          }),
+        });
+
+        alert("Payment success 🎉");
+        clearCart();
+
+        // ✅ redirect after order
+        router.push("/orders");
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   }
-
-  const res = await fetch("/api/payment", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      amount: finalTotal,
-    }),
-  });
-
-  const order = await res.json();
-
-  const options = {
-    key: "rzp_test_xxxxx", // hardcode
-    amount: order.amount,
-    currency: "INR",
-    name: "QuickApp",
-    order_id: order.id,
-
-    handler: async function (response) {
-
-      await fetch("/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          items: cart,
-          total,
-          delivery,
-          finalTotal,
-          paymentId: response.razorpay_payment_id,
-          customer: { name, phone, address },
-        }),
-      });
-
-      alert("Payment success");
-
-    },
-  };
-
-  const rzp = new window.Razorpay(options);
-  rzp.open();
-}
 
   return (
     <div className="max-w-3xl mx-auto p-4 pb-28">
+
       <h1 className="text-2xl font-bold mb-4">Your Cart</h1>
 
-      {cart.length === 0 && <p className="text-gray-500">Cart empty hai 😅</p>}
+      {cart.length === 0 && (
+        <p className="text-gray-500">Cart empty hai 😅</p>
+      )}
 
       {cart.map((item) => (
         <div
           key={item._id}
           className="flex items-center justify-between bg-white p-3 rounded mb-3 shadow-sm"
         >
+
           <div className="flex items-center gap-3">
+
             <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden">
               {item.image ? (
-                <img src={item.image} className="w-full h-full object-cover" />
+                <img
+                  src={item.image}
+                  className="w-full h-full object-cover"
+                  alt={item.name}
+                />
               ) : (
                 <div className="flex items-center justify-center h-full text-xs text-gray-400">
                   No img
@@ -138,12 +162,13 @@ export default function CartPage() {
 
             <div>
               <p className="font-semibold text-sm">{item.name}</p>
-
               <p className="text-gray-600 text-sm">₹{item.price}</p>
             </div>
+
           </div>
 
           <div className="flex items-center gap-2">
+
             <button
               onClick={() => dec(item._id)}
               className="bg-gray-200 px-2 rounded"
@@ -166,14 +191,20 @@ export default function CartPage() {
             >
               ✕
             </button>
+
           </div>
+
         </div>
       ))}
 
       {cart.length > 0 && (
         <div className="fixed bottom-0 left-0 w-full bg-green-600 text-white p-4 flex justify-between items-center shadow-lg">
+
           <div>
             <p>Total: ₹{finalTotal}</p>
+            {delivery > 0 && (
+              <p className="text-xs">Including ₹{delivery} delivery</p>
+            )}
           </div>
 
           <button
@@ -182,8 +213,10 @@ export default function CartPage() {
           >
             Place Order
           </button>
+
         </div>
       )}
+
     </div>
   );
 }
